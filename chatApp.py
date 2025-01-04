@@ -6,6 +6,7 @@ import shutil
 import uuid,base64
 from langchainFlow import get_answer
 from streamlit_google_auth import Authenticate
+from HandleFeedback import insert_feedback
 st.set_page_config(page_title="WaferGPT", page_icon="🧇", layout="wide")
 
 # def get_answer(d,a):
@@ -47,131 +48,150 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-# if 'connected' not in st.session_state:
-#     authenticator = Authenticate(
-#         secret_credentials_path='client_secret.json',
-#         cookie_name='my_cookie_name',
-#         cookie_key='this_is_secret',
-#         redirect_uri='http://182.66.109.42:8080/',
-#     )
-#     st.session_state["authenticator"] = authenticator
+if 'connected' not in st.session_state:
+    authenticator = Authenticate(
+        secret_credentials_path='client_secret.json',
+        cookie_name='my_cookie_name',
+        cookie_key='this_is_secret',
+        redirect_uri='https://app.ambitionintl.com',
+    )
+    st.session_state["authenticator"] = authenticator
 
 # Check authentication status
-# st.session_state["authenticator"].check_authentification()
-# st.session_state["authenticator"].login()
-#
-# if not st.session_state.get('connected', False):
-#     # If not authenticated, show login page
-#     st.warning("Please log in to access the application.")
-# else:
-#     # Show user info in the sidebar
-#     with st.sidebar:
-#         col1, col2 = st.columns([2, 1])
-#         with col1:
-#             st.write(f"Welcome, **{st.session_state['user_info'].get('name')}**!")
-#         with col2:
-#             if st.button("Log Out"):
-#                 st.session_state["authenticator"].logout()
-#                 st.rerun()
+
+
+st.session_state["authenticator"].check_authentification()
+st.session_state["authenticator"].login()
+
+if st.session_state['connected']:
+    # Show user info in the sidebar
+    with st.sidebar:
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.write(f"Welcome, **{st.session_state['user_info'].get('name')}**!")
+        with col2:
+            if st.button("Log Out"):
+                st.session_state["authenticator"].logout()
+                st.rerun()
     # st.title("Wafer-Defect-Detector")
-st.sidebar.image("logo.jpg", use_column_width=True)
-st.sidebar.header("Wafer-Defect-Detector")
+    st.sidebar.image("logo.jpg", use_column_width=True)
+    st.sidebar.header("Wafer-Defect-Detector")
 
-# Initialize session state variables
-if 'selected_llm' not in st.session_state:
-    st.session_state.selected_llm = None
-if 'chat_history' not in st.session_state:
-    st.session_state.chat_history = []
-if 'selected_npy' not in st.session_state:
-    st.session_state.selected_npy = None
+    # Initialize session state variables
+    if 'selected_llm' not in st.session_state:
+        st.session_state.selected_llm = None
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    if 'selected_npy' not in st.session_state:
+        st.session_state.selected_npy = None
 
-# Sidebar "About" section
-st.sidebar.subheader("About")
-st.sidebar.info(
-    """
-    **WaferGPT** is a specialized AI-driven tool designed to analyze semiconductor wafers for defects.
-    Pick a wafer image and interact with our AI assistant to detect issues and gain insights on the type
-    of defect, location of the defect, defect percentage and much more
-    """
-)
+    # Sidebar "About" section
+    st.sidebar.subheader("About")
+    st.sidebar.info(
+        """
+        **WaferGPT** is a specialized AI-driven tool designed to analyze semiconductor wafers for defects.
+        Pick a wafer image and interact with our AI assistant to detect issues and gain insights on the type
+        of defect, location of the defect, defect percentage and much more
+        """
+    )
 
-# Sidebar "How to Use" section
-st.sidebar.subheader("How to Use")
-st.sidebar.info(
-    """
-    1. Select the file from the **"Pick a wafer to examine"** dropdown.
-    2. Ask your question in the chatbox.
-    3. View the AI's analysis and the processed image.
-    """
-)
+    # Sidebar "How to Use" section
+    st.sidebar.subheader("How to Use")
+    st.sidebar.info(
+        """
+        1. Select the file from the **"Pick a wafer to examine"** dropdown.
+        2. Ask your question in the chatbox.
+        3. View the AI's analysis and the processed image.
+        """
+    )
+    with st.sidebar:
+        st.subheader("Feedback")
 
-# Sidebar for LLM selection
-st.sidebar.subheader("Select a LLM Model")
-LLMs = ['Llava', 'GPT-4o']
-selected_llm = st.sidebar.selectbox("Choose a LLM:", LLMs, index=0)
-if selected_llm:
-    st.session_state.selected_llm = selected_llm
+        # Feedback text box
+        feedback_text = st.text_area("Share your feedback:")
+        if st.button("Submit Feedback"):
+            # Retrieve username from session state
+            username = st.session_state['user_info'].get('name', 'Anonymous')  # Default to 'Anonymous' if name is unavailable
+            # username = "Barani"
+            if feedback_text:
+                # Insert feedback into the database
+                if insert_feedback(username, feedback_text):
+                    st.success("Feedback submitted successfully!")
+                else:
+                    st.error("Failed to submit feedback.")
+            else:
+                st.warning("Please enter feedback before submitting.")
 
-# Sidebar for selecting .npy file
-st.sidebar.header("Pick a wafer to examine!!")
-npy_files = [f for f in os.listdir('npy_files') if f.endswith('.npy')]
-npy_files = sorted(npy_files, key=lambda x: int(x.replace("image", "").replace(".npy", "")))
+    # Sidebar for LLM selection
+    st.sidebar.subheader("Select a LLM Model")
+    LLMs = ['Llava', 'GPT-4o']
+    selected_llm = st.sidebar.selectbox("Choose a LLM:", LLMs, index=0)
+    if selected_llm:
+        st.session_state.selected_llm = selected_llm
 
-npy_file_selected = st.sidebar.selectbox("Choose a wafer:", npy_files)
+    # Sidebar for selecting .npy file
+    st.sidebar.header("Pick a wafer to examine!!")
+    npy_files = [f for f in os.listdir('npy_files') if f.endswith('.npy')]
+    npy_files = sorted(npy_files, key=lambda x: int(x.replace("image", "").replace(".npy", "")))
 
-if npy_file_selected:
-    # Load the selected .npy file
-    array = np.load(os.path.join('npy_files', npy_file_selected), allow_pickle=True)
-    st.session_state.selected_npy = os.path.join('npy_files', npy_file_selected)
-    st.sidebar.write(f"Selected wafer:")
+    npy_file_selected = st.sidebar.selectbox("Choose a wafer:", npy_files)
 
-    # Display the .npy file as an image in the sidebar
-    fig, ax = plt.subplots(figsize=(2, 2))
-    ax.imshow(array, cmap='viridis')
-    ax.axis('off')
-    st.sidebar.pyplot(fig)
+    if npy_file_selected:
+        # Load the selected .npy file
+        array = np.load(os.path.join('npy_files', npy_file_selected), allow_pickle=True)
+        st.session_state.selected_npy = os.path.join('npy_files', npy_file_selected)
+        st.sidebar.write(f"Selected wafer:")
 
-# Display chat history with image and question
-for idx, message in enumerate(st.session_state.chat_history):
-    if message['type'] == 'user':
-        st.markdown(beautify_user_message(message['content']), unsafe_allow_html=True)
-    elif message['type'] == 'ca':
-        st.markdown(beautify_ca_message(message['content'].capitalize()), unsafe_allow_html=True)
-        if 'image_path' in message:
-            st.image(message['image_path'], caption="Processed Image", width=350)
+        # Display the .npy file as an image in the sidebar
+        fig, ax = plt.subplots(figsize=(2, 2))
+        ax.imshow(array, cmap='viridis')
+        ax.axis('off')
+        st.sidebar.pyplot(fig)
 
-# User input and selected .npy file interaction
-user_prompt = st.chat_input("Ask your question here !!")
+    # Display chat history with image and question
+    for idx, message in enumerate(st.session_state.chat_history):
+        if message['type'] == 'user':
+            st.markdown(beautify_user_message(message['content']), unsafe_allow_html=True)
+        elif message['type'] == 'ca':
+            st.markdown(beautify_ca_message(message['content'].capitalize()), unsafe_allow_html=True)
+            if 'image_path' in message:
+                st.image(message['image_path'], caption="Processed Image", width=350)
 
-if user_prompt:
-    # Record user question
-    st.session_state.chat_history.append({'type': 'user', 'content': user_prompt})
+    # User input and selected .npy file interaction
+    user_prompt = st.chat_input("Ask your question here !!")
 
-    # Generate AI response
-    response = get_answer(user_prompt, st.session_state.selected_npy)
+    if user_prompt:
+        # Record user question
+        st.session_state.chat_history.append({'type': 'user', 'content': user_prompt})
 
-    # Get the most recently edited file from the "output" folder
-    recent_file = get_most_recent_file("output")
-    if recent_file and response:
-        # Generate a unique filename for the processed image
-        unique_filename = f"processed_{uuid.uuid4().hex}.png"
-        processed_image_path = os.path.join("processed_images", unique_filename)
+        # Generate AI response
+        response = get_answer(user_prompt, st.session_state.selected_npy)
 
-        # Copy the most recent file to the processed_images folder with a new name
-        shutil.copy(recent_file, processed_image_path)
+        # Get the most recently edited file from the "output" folder
+        recent_file = get_most_recent_file("output")
+        if recent_file and response:
+            # Generate a unique filename for the processed image
+            unique_filename = f"processed_{uuid.uuid4().hex}.png"
+            processed_image_path = os.path.join("processed_images", unique_filename)
 
-        # Save AI response and processed image in chat history
-        st.session_state.chat_history.append({
-            'type': 'ca',
-            'content': response,
-            'image_path': processed_image_path
-        })
-    else:
-        # If no file is found, inform the user
-        st.session_state.chat_history.append({
-            'type': 'ca',
-            'content': response + "\nNo processed image available. Please ensure the 'output' folder contains images."
-        })
+            # Copy the most recent file to the processed_images folder with a new name
+            shutil.copy(recent_file, processed_image_path)
 
-    # Rerun to refresh the chat
-    st.rerun()
+            # Save AI response and processed image in chat history
+            st.session_state.chat_history.append({
+                'type': 'ca',
+                'content': response,
+                'image_path': processed_image_path
+            })
+        else:
+            # If no file is found, inform the user
+            st.session_state.chat_history.append({
+                'type': 'ca',
+                'content': response + "\nNo processed image available. Please ensure the 'output' folder contains images."
+            })
+
+        # Rerun to refresh the chat
+        st.rerun()
+    # If not authenticated, show login page
+else:
+    st.warning("Please log in to access the application.")
