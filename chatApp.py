@@ -106,25 +106,24 @@ if st.session_state['connected']:
     )
     with st.sidebar:
         st.subheader("Feedback")
-
-        # Feedback text box
-        feedback_text = st.text_area("Share your feedback:")
-        if st.button("Submit Feedback"):
-            # Retrieve username from session state
-            username = st.session_state['user_info'].get('name', 'Anonymous')  # Default to 'Anonymous' if name is unavailable
-            # username = "Barani"
-            if feedback_text:
-                # Insert feedback into the database
-                if insert_feedback(username, feedback_text):
-                    st.success("Feedback submitted successfully!")
+        # Feedback form
+        with st.form("my_form", clear_on_submit=True):
+            feedback_text = st.text_area("Share your feedback:")
+            submitted = st.form_submit_button("Submit Feedback", type="secondary")
+            if submitted:
+                username = st.session_state['user_info'].get('name', 'Anonymous')  # Default to 'Anonymous' if name is unavailable
+                # username = "Barani"
+                if feedback_text:
+                    if insert_feedback(username, feedback_text):
+                        st.success("Thanks for your Feedback!")
+                    else:
+                        st.error("Failed to submit feedback.")
                 else:
-                    st.error("Failed to submit feedback.")
-            else:
-                st.warning("Please enter feedback before submitting.")
+                    st.warning("Please enter feedback before submitting.")
 
     # Sidebar for LLM selection
     st.sidebar.subheader("Select a LLM Model")
-    LLMs = ['Llava', 'GPT-4o']
+    LLMs = ['WaferGPT']
     selected_llm = st.sidebar.selectbox("Choose a LLM:", LLMs, index=0)
     if selected_llm:
         st.session_state.selected_llm = selected_llm
